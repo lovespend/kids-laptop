@@ -14,6 +14,7 @@ settings that survive suspend, reboots and package upgrades.
 | [`bootstrap.sh`](bootstrap.sh) | Fast path for a clean install: runs every mechanical step in order and stops at the app review. |
 | [`RUNBOOK.md`](RUNBOOK.md) | Start here. Step-by-step setup, verification checklist, maintenance and troubleshooting. |
 | [`kid-net-setup.sh`](kid-net-setup.sh) | Pins DNS to the local NextDNS resolver on every link, re-asserts it after suspend and reconnects, sets lid-close behaviour, and locks Firefox's DNS-over-HTTPS off while trusting the NextDNS CA. |
+| [`nextdns-profile.sh`](nextdns-profile.sh) | Manages the NextDNS filtering policy as a versioned JSON file: export, diff, apply. Also finds what's actually being blocked, for allowlisting. Runs on the parent's machine, never the child's. |
 | [`app-gate.sh`](app-gate.sh) | Audits installed desktop apps, then hides the ones you choose from the child's menu and blocks their binaries at the filesystem level. Re-applies itself after apt upgrades. |
 
 ## The short version

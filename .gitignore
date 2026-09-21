@@ -1,0 +1,5 @@
+# NextDNS API key — never commit. nextdns-profile.sh reads it from
+# $NEXTDNS_API_KEY or ~/.config/nextdns/api-key, not from the repo.
+api-key
+*.api-key
+.env

@@ -167,11 +167,42 @@ The cost is that this one needs revisiting if the BBC moves hosts, which is exac
 
 **Logging is a decision, not a default.** Logs make the first fortnight far easier — when something is wrongly blocked, the log shows you the exact domain and you allowlist it in seconds. They also mean you're keeping a record of your child's browsing, which is a parenting choice rather than a technical one. A reasonable middle: turn logs on while you settle the setup, keep retention short, pick the storage region nearest you, then decide deliberately whether to keep them.
 
+The API exposes finer control than the dashboard makes obvious — `settings.logs` carries `retention` (in seconds), `location`, and a `drop` block that can discard client IPs or domains while keeping the rest. Logging which domains were *blocked*, without retaining a full browsing history, is a defensible middle ground.
+
 Whatever you decide, tell her the laptop is filtered and roughly how. Discovering it later feels like being spied on; being told up front is just a house rule.
 
 ### The filtering model
 
 "Block known-bad categories, allow the rest", with per-site exceptions from the Allowlist and Denylist tabs. True whitelist-only filtering was tried and abandoned: every site needs dozens of domains discovered by hand, forever.
+
+### Managing the profile as a file
+
+Everything above is dashboard clicking, which is the least reproducible part of this setup: nothing checks that the profile still matches what this document says. NextDNS has an API, and `nextdns-profile.sh` puts the policy in version control instead.
+
+```bash
+# parent's machine, not the child's laptop
+mkdir -p ~/.config/nextdns
+printf '%s' 'YOUR_API_KEY' > ~/.config/nextdns/api-key   # from my.nextdns.io/account
+chmod 600 ~/.config/nextdns/api-key
+export NEXTDNS_PROFILE=abc123
+
+./nextdns-profile.sh export      # live profile -> nextdns-profile.json
+./nextdns-profile.sh diff        # has anything drifted?
+./nextdns-profile.sh apply --yes # push the file back
+```
+
+Start with `export` and `diff`. Both are read-only, and `apply` without `--yes` only shows you what it would change.
+
+**Run this on your machine, not hers.** The API key can switch filtering off as easily as on; putting it on the filtered laptop installs the bypass next to the lock. It's in `.gitignore`, and the script refuses to read a key file that others can read.
+
+Two things it's good for beyond backup:
+
+```bash
+./nextdns-profile.sh schema          # the real field names, including any the docs omit
+./nextdns-profile.sh blocked bbc     # what's actually being blocked, with the reason
+```
+
+`blocked` is the answer to the iPlayer problem — it reads the query logs and tells you exactly which hostnames were refused and why, instead of guessing at a service's domains. Logs must be enabled on the profile for it to return anything.
 
 ### Tuning it
 
