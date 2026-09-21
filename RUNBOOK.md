@@ -75,13 +75,67 @@ sudo deluser CHILD sudo
 
 ## Step 2 — NextDNS profile (web dashboard)
 
-At my.nextdns.io, create a new profile for the child, then configure:
+At my.nextdns.io, create a new profile for the child and note the **profile ID** — six characters, on the Setup tab. You need it in Step 3.
 
-- **Parental Control:** block the categories you want (adult content, gambling, dating, etc.). Turn on SafeSearch and YouTube Restricted Mode.
-- **Settings:** turn on **Block Page**. This needs the CA certificate, which Step 5 handles automatically.
-- Note the **profile ID** (six characters, shown on the Setup tab).
+Then work through the tabs. What follows is a recommended baseline for a child of around 11; adjust to your own judgement, and see *Tuning it* below for what to change as she gets older. NextDNS move things around in the dashboard from time to time, so match these by meaning rather than expecting the labels to line up exactly.
 
-The model here is "block known-bad categories, allow the rest", with per-site allow/deny exceptions from the dashboard. True whitelist-only filtering was tried and abandoned: every site needs dozens of domains discovered by hand, forever.
+### Security — turn it all on
+
+Nothing here is a parenting decision, so there's little reason to leave any of it off:
+
+| Setting | Why |
+|---|---|
+| Threat Intelligence Feeds | Known malicious domains |
+| AI-Driven Threat Detection | Catches what the feeds haven't listed yet |
+| Google Safe Browsing | Phishing and malware |
+| Cryptojacking Protection | Mining scripts on compromised sites |
+| DNS Rebinding Protection | Attacks that pivot to devices on your home network |
+| IDN Homograph Attacks | Lookalike domains using non-Latin characters |
+| Typosquatting Protection | `youtybe.com` and friends — genuinely useful for a child who mistypes |
+| DGA Protection | Malware phoning home to generated domains |
+| Block Newly Registered Domains | Scams and throwaway bypass sites are usually days old |
+| Block Parked Domains | Ad-farm placeholders |
+| Block CSAM | Leave on |
+
+Two carry a false-positive cost worth knowing about. **Newly Registered Domains** will occasionally block something legitimate that has just launched. **Block Dynamic DNS Hostnames** stops `no-ip`-style hostnames, which is a real bypass route, but also breaks some game servers and self-hosted things. Turn both on, and if something breaks, check the logs before assuming the site is at fault.
+
+### Privacy
+
+Enable the **NextDNS Ads & Trackers Blocklist**. That one is well-maintained and rarely breaks anything.
+
+Resist stacking three or four more blocklists on top. Each one adds breakage you'll have to diagnose, and a filtered laptop that keeps breaking is one she'll want to get around. The native tracking protection options are aimed at Windows, Apple and Samsung devices and do nothing useful on Linux.
+
+### Parental Control — the part that matters
+
+**Categories.** Block Porn, Gambling, Dating and Piracy. Think before blocking the two broad ones: *Social Networks* is a reasonable block at 11, and *Video Streaming* usually isn't — it catches YouTube and iPlayer and will make the laptop feel broken.
+
+**Services.** These are per-app toggles and more precise than the categories. A sensible starting set to block: TikTok, Snapchat, Instagram, Twitch, Discord. Leave YouTube allowed but restricted (below), and leave Roblox or Minecraft alone if she plays them.
+
+**Block Bypass Methods.** Turn this on. It blocks VPN, proxy and Tor services at the DNS level, and it is the single highest-value toggle on the page — "how to get past wifi blocking" is the first thing anyone searches. It pairs directly with `app-gate` locking the VPN and browser binaries: one stops her installing a bypass tool, this stops the ones she can reach in a browser.
+
+**SafeSearch.** On. Forces the safe variants of Google, Bing and DuckDuckGo.
+
+**YouTube Restricted Mode.** On, with eyes open: it's YouTube's own filter and it is blunt. It removes a lot of genuinely harmless content along with the rest, and it's a common source of "this doesn't work" complaints. Worth it at 11, worth revisiting later.
+
+**Recreation Time.** Optional. Lets you put games and social categories on a schedule — off during school hours, off after bedtime — rather than blocking them outright. Often a better answer than a flat block for something she'd otherwise resent.
+
+### Settings — block page and logging
+
+**Block Page: on.** Without it, a blocked site fails as a confusing network error; with it, she gets a page telling her it was blocked. Much easier to live with, and much easier to debug. It needs the NextDNS certificate to be trusted, which Step 5 handles.
+
+**Logging is a decision, not a default.** Logs make the first fortnight far easier — when something is wrongly blocked, the log shows you the exact domain and you allowlist it in seconds. They also mean you're keeping a record of your child's browsing, which is a parenting choice rather than a technical one. A reasonable middle: turn logs on while you settle the setup, keep retention short, pick the storage region nearest you, then decide deliberately whether to keep them.
+
+Whatever you decide, tell her the laptop is filtered and roughly how. Discovering it later feels like being spied on; being told up front is just a house rule.
+
+### The filtering model
+
+"Block known-bad categories, allow the rest", with per-site exceptions from the Allowlist and Denylist tabs. True whitelist-only filtering was tried and abandoned: every site needs dozens of domains discovered by hand, forever.
+
+### Tuning it
+
+Expect to adjust in the first fortnight. Wrongly blocked sites are a dashboard change and nothing on the laptop — see *Maintenance*. If you find yourself making exceptions constantly for one category, unblock the category and use per-site denies instead.
+
+As she gets older the things to relax first are YouTube Restricted Mode and the Social Networks category. The two to keep longest are Block Bypass Methods and the Security tab.
 
 ## Step 3 — Install the NextDNS CLI
 
@@ -218,6 +272,7 @@ Log in as CHILD and check each item:
 
 - [ ] `https://test.nextdns.io` in Firefox shows NextDNS **and the correct profile ID**
 - [ ] A site in a blocked category shows the NextDNS block page, not a certificate error
+- [ ] A VPN or proxy provider's site is blocked, confirming Block Bypass Methods is live
 - [ ] `about:policies` in Firefox lists `DNSOverHTTPS` and `Certificates` as active
 - [ ] Locked apps are missing from the menu
 - [ ] The terminal won't open for the child
