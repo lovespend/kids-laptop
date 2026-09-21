@@ -1,5 +1,7 @@
 # kids-laptop
 
+[![shellcheck](https://github.com/lovespend/kids-laptop/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/lovespend/kids-laptop/actions/workflows/shellcheck.yml)
+
 Scripts and a runbook for turning a Linux Mint (Cinnamon) laptop into a
 child-safe machine: filtered internet that follows the laptop onto any
 network, admin and bypass tools locked away from the child's account, and
