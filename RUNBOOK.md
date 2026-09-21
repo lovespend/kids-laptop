@@ -109,7 +109,7 @@ Resist stacking three or four more blocklists on top. Each one adds breakage you
 
 **Categories.** Block Porn, Gambling, Dating, Piracy, Social Networks and Video Streaming.
 
-Blocking Video Streaming wholesale is the stricter choice, and it means the services you *do* want have to be allowed back through by hand — see *Allowing a service through a category block* below. It's the right way round if the alternative leaves the long tail of random streaming sites open, but it is not a one-line job.
+Blocking Video Streaming wholesale closes the long tail — the streaming sites nobody has heard of and NextDNS doesn't list individually. The services you *do* want then come back through on a schedule, which costs you nothing to maintain; see *Allowing a service back through* below.
 
 **Services.** Per-app toggles, more precise than the categories. Block TikTok, Snapchat, Instagram, Twitch and Discord. Leave Roblox or Minecraft alone if she plays them.
 
@@ -125,27 +125,25 @@ Know what this costs before you do it: embedded YouTube players break everywhere
 
 **Recreation Time.** Optional. Lets you put games and social categories on a schedule — off during school hours, off after bedtime — rather than blocking them outright. Often a better answer than a flat block for something she'd otherwise resent.
 
-### Allowing a service through a category block
+### Allowing a service back through — use the schedule, not the allowlist
 
-With Video Streaming blocked, iPlayer and Disney+ need allowlist entries. Neither is a single domain, and guessing the list is how people end up abandoning this approach. Drive it from the logs instead:
+With Video Streaming blocked as a category, the way to let one service through is **not** an allowlist entry. Instead:
 
-1. Turn **logs on** (see below) before you start.
-2. Block the category, then open the service on the child's laptop and try to play something.
-3. Watch the **Logs** tab in the dashboard. Blocked lookups appear as they happen.
-4. Add the blocked domains that clearly belong to that service to the **Allowlist**, and retry.
+1. Find the service under **Parental Control → Services** and block it explicitly.
+2. On that same entry, set **allow this service via schedule** (Recreation Time).
 
-Two or three rounds usually does it, and it's a one-off per service. Starting points:
+The scheduled window overrides the category block, and the service works during it. NextDNS keeps the domain list for that service up to date, so there is nothing for you to maintain — no chasing CDN hosts, no allowlist entries, nothing to re-fix when the service moves infrastructure.
 
-| Service | Start with |
-|---|---|
-| BBC iPlayer | `bbc.co.uk`, `bbci.co.uk`, `bbc.com` |
-| Disney+ | `disneyplus.com`, `disney-plus.net`, `disneystreaming.com`, `bamgrid.com`, `dssott.com` |
+This is how BBC iPlayer and Disney+ get through. If you want one available all the time rather than in a window, give it a schedule covering the whole week.
 
-Treat those as a first pass, not a complete list — both services shift CDN hosts over time, and the log is what tells you the truth on the day.
+Two things fall out of this that are worth having on purpose:
 
-**Keep allowlist entries narrow.** A NextDNS allowlist entry covers the domain and its subdomains, and takes precedence over blocking — including the Security tab. So allowing a shared-infrastructure domain because a video wouldn't play (`amazonaws.com`, `akamaized.net`, `cloudfront.net` and the like) punches a hole far wider than the service you were trying to fix, and it will be quietly carrying malware domains through months later. If a service only works when you allow shared infrastructure, stop and reconsider blocking the category rather than widening the hole.
+- **It's time-boxed.** A window you chose beats an always-on allowance, and it's a much easier conversation than an outright block.
+- **It doesn't touch your security filtering.** This is a Parental Control mechanism, so it grants an exception within parental controls only. An Allowlist entry is the blunter instrument — see below.
 
-**If this gets tiresome,** the honest alternative is to leave Video Streaming unblocked and rely on the per-service toggles plus denylist entries for what you don't want. Weaker against sites nobody has heard of, but nothing legitimate breaks. Both are defensible; the runbook assumes your choice, not the other one.
+**Only use the Allowlist as a last resort, and keep entries narrow.** An allowlist entry covers the domain *and its subdomains*, and takes precedence over blocking — including the Security tab. So allowing a shared-infrastructure domain because a video wouldn't play (`amazonaws.com`, `akamaized.net`, `cloudfront.net` and the like) punches a hole far wider than the service you were fixing, and it will still be quietly carrying malware domains months later. If something only works by allowing shared infrastructure, that's a sign to stop, not to widen the hole.
+
+> Checked against the live dashboard, September 2026. NextDNS move things around, so if the schedule override stops behaving as described, re-check it before assuming the setup is broken.
 
 ### Settings — block page and logging
 
@@ -302,7 +300,7 @@ Log in as CHILD and check each item:
 - [ ] A site in a blocked category shows the NextDNS block page, not a certificate error
 - [ ] A VPN or proxy provider's site is blocked, confirming Block Bypass Methods is live
 - [ ] YouTube is blocked, including `youtu.be` and the mobile site
-- [ ] BBC iPlayer and Disney+ both actually play a video, not just load their front page
+- [ ] BBC iPlayer and Disney+ both actually play a video, not just load their front page — inside their scheduled window
 - [ ] `about:policies` in Firefox lists `DNSOverHTTPS` and `Certificates` as active
 - [ ] Locked apps are missing from the menu
 - [ ] The terminal won't open for the child
@@ -326,7 +324,7 @@ sudo app-gate status       # Drift: 0
 | New apps installed | Run `sudo app-gate audit` (your existing choices are kept), review the **NEW** block, then `sudo app-gate apply` |
 | Unlock an app | Edit the list and change `LOCK` to `KEEP`, then `sudo app-gate apply` |
 | A site is wrongly blocked or allowed | Adjust the allow/deny lists in the NextDNS dashboard. No laptop changes needed. |
-| iPlayer or Disney+ stops playing | Their CDN hosts have moved. Check the Logs tab while reproducing it and add the new domains to the allowlist — keeping entries narrow, never shared CDN wildcards. |
+| iPlayer or Disney+ stops playing | Check the schedule on that service first — most often it's simply outside its window. NextDNS maintains the domains, so a CDN move isn't yours to fix. |
 | Undo all app gating | `sudo app-gate revert` (keeps the list) or `sudo app-gate uninstall` (removes everything) |
 
 Each audit backs up the previous list to `/etc/app-gate/app-gate.list.bak.*`.
