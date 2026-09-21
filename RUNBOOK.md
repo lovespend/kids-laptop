@@ -134,7 +134,7 @@ With Video Streaming blocked as a category, the way to let one service through i
 
 The scheduled window overrides the category block, and the service works during it. NextDNS keeps the domain list for that service up to date, so there is nothing for you to maintain — no chasing CDN hosts, no allowlist entries, nothing to re-fix when the service moves infrastructure.
 
-This is how BBC iPlayer and Disney+ get through. If you want one available all the time rather than in a window, give it a schedule covering the whole week.
+This is how Disney+ gets through. If you want a service available all the time rather than in a window, give it a schedule covering the whole week.
 
 Two things fall out of this that are worth having on purpose:
 
@@ -142,6 +142,22 @@ Two things fall out of this that are worth having on purpose:
 - **It doesn't touch your security filtering.** This is a Parental Control mechanism, so it grants an exception within parental controls only. An Allowlist entry is the blunter instrument — see below.
 
 **Only use the Allowlist as a last resort, and keep entries narrow.** An allowlist entry covers the domain *and its subdomains*, and takes precedence over blocking — including the Security tab. So allowing a shared-infrastructure domain because a video wouldn't play (`amazonaws.com`, `akamaized.net`, `cloudfront.net` and the like) punches a hole far wider than the service you were fixing, and it will still be quietly carrying malware domains months later. If something only works by allowing shared infrastructure, that's a sign to stop, not to widen the hole.
+
+### When the service isn't on NextDNS's list
+
+NextDNS's service list is US-centric, and **BBC iPlayer isn't on it**. No service entry means no schedule to hang an exception on, so the method above doesn't apply.
+
+**Check whether it's actually blocked first.** The Video Streaming category is built from NextDNS's own service definitions. A service they don't recognise may well not be in the category either — in which case iPlayer already works and there is nothing to solve. Open it on the child's laptop and try to play something before doing anything else.
+
+If it *is* blocked, the Allowlist is the only route left, and this is the case it exists for. Do it from the logs rather than from guesswork:
+
+1. Logs on. Reproduce the failure on the laptop.
+2. Read the **Logs** tab for the blocked lookups.
+3. Allow them — **as full hostnames, not apex domains**.
+
+That last point is the whole game. `bbc.co.uk` and `bbci.co.uk` are BBC-owned and safe enough to allow at the apex. Streaming itself usually comes from a shared CDN, and `akamaized.net` or `llnwd.net` at the apex would open every customer on that CDN, including the malicious ones. Allow the specific hostname the log names — `something.bbcfmt.hs.llnwd.net`, not `llnwd.net` — and you get iPlayer without the hole. If a hostname turns out to rotate, allow the narrowest parent that is still clearly BBC's.
+
+The cost is that this one needs revisiting if the BBC moves hosts, which is exactly the maintenance the schedule method avoids. It's worth asking NextDNS to add iPlayer as a service; they take requests, and it would remove this section.
 
 > Checked against the live dashboard, September 2026. NextDNS move things around, so if the schedule override stops behaving as described, re-check it before assuming the setup is broken.
 
@@ -324,7 +340,8 @@ sudo app-gate status       # Drift: 0
 | New apps installed | Run `sudo app-gate audit` (your existing choices are kept), review the **NEW** block, then `sudo app-gate apply` |
 | Unlock an app | Edit the list and change `LOCK` to `KEEP`, then `sudo app-gate apply` |
 | A site is wrongly blocked or allowed | Adjust the allow/deny lists in the NextDNS dashboard. No laptop changes needed. |
-| iPlayer or Disney+ stops playing | Check the schedule on that service first — most often it's simply outside its window. NextDNS maintains the domains, so a CDN move isn't yours to fix. |
+| Disney+ stops playing | Check its schedule first — most often it's simply outside the window. NextDNS maintains the domains, so a CDN move isn't yours to fix. |
+| iPlayer stops playing | It has no service entry, so it rides on allowlisted hostnames. Reproduce it with the Logs tab open and allow the new hostname — narrowly, never a bare CDN apex. |
 | Undo all app gating | `sudo app-gate revert` (keeps the list) or `sudo app-gate uninstall` (removes everything) |
 
 Each audit backs up the previous list to `/etc/app-gate/app-gate.list.bak.*`.
