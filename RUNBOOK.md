@@ -29,6 +29,20 @@ The parent keeps full access throughout: the parent account is in the `gatedapps
 
 ---
 
+## The fast path
+
+On a clean install, `bootstrap.sh` runs steps 0 to 6 back to back and stops at the app review:
+
+```bash
+sudo ./bootstrap.sh --child CHILD --profile PROFILE_ID
+```
+
+You still need the NextDNS profile from Step 2 first, and you still do the review in Step 6 and the checks in Step 8 yourself. Add `--dry-run` to see what it would do. Every phase is idempotent, so a failed run can be fixed and re-run.
+
+The rest of this document is the same ground done by hand — worth reading either way, since it explains what each piece is for and how to verify it.
+
+---
+
 ## Step 0 — Check systemd-resolved
 
 Everything in Step 5 depends on this, so check it before you start:
@@ -71,7 +85,25 @@ The model here is "block known-bad categories, allow the rest", with per-site al
 
 ## Step 3 — Install the NextDNS CLI
 
-In a terminal on the laptop, as PARENT:
+Mint is Debian-based, so use NextDNS's apt repository. Upgrades then come through apt with everything else, and there's nothing interactive to answer. As PARENT:
+
+```bash
+sudo curl -fsSL https://repo.nextdns.io/nextdns.gpg -o /usr/share/keyrings/nextdns.gpg
+echo "deb [signed-by=/usr/share/keyrings/nextdns.gpg] https://repo.nextdns.io/deb stable main" | sudo tee /etc/apt/sources.list.d/nextdns.list
+sudo apt update
+sudo apt install nextdns
+```
+
+Then configure it, substituting the profile ID from Step 2:
+
+```bash
+sudo nextdns install -profile PROFILE_ID -report-client-info -auto-activate
+```
+
+If that reports an unknown flag, your build uses the newer name — swap `-profile` for `-config`. Getting this wrong is worth catching: the service will start either way, but DNS goes out unfiltered.
+
+<details>
+<summary>Alternative: the interactive installer</summary>
 
 ```bash
 sh -c "$(curl -sL https://nextdns.io/install)"
@@ -83,11 +115,17 @@ Choose **Install**. When prompted:
 - Answer yes to reporting device name/model
 - Answer yes to auto-activate / setting it as the system resolver
 
+Upgrades are then handled with `sudo nextdns upgrade` rather than apt. Pin a specific build with `NEXTDNS_VERSION=master/SNAPSHOT-0214daf` before the command. Add `DEBUG=1` if you need a transcript for NextDNS support.
+</details>
+
 Confirm the service is running and enabled:
 
 ```bash
 systemctl status nextdns
 ```
+
+The CLI may warn that client discovery is disabled because it's listening on a loopback address only, so devices show up in the dashboard without names. That's expected here and doesn't affect filtering — this profile has one device on it, the laptop itself.
+
 
 ## Step 4 — Copy the kit to the parent's account
 
@@ -190,7 +228,7 @@ sudo app-gate status       # Drift: 0
 
 | When | Do |
 |---|---|
-| After a large upgrade | Nothing needed; the apt hook re-applies the locks. `sudo app-gate status` confirms it. |
+| After a large upgrade | Nothing needed; the apt hook re-applies the locks, and the NextDNS CLI upgrades with everything else. `sudo app-gate status` confirms it. |
 | New apps installed | Run `sudo app-gate audit` (your existing choices are kept), review the **NEW** block, then `sudo app-gate apply` |
 | Unlock an app | Edit the list and change `LOCK` to `KEEP`, then `sudo app-gate apply` |
 | A site is wrongly blocked or allowed | Adjust the allow/deny lists in the NextDNS dashboard. No laptop changes needed. |
