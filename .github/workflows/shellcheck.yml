@@ -1,0 +1,40 @@
+name: shellcheck
+
+# These scripts run as root on a laptop that isn't easy to un-break, so the
+# shell-level mistakes — a typo'd variable expanding to empty, an unquoted
+# path, a test that's always true — are worth catching before they get there.
+# Pushes to main, and every pull request. Limiting push to main stops a
+# branch with an open pull request running the whole thing twice per commit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ubuntu's own package rather than a third-party action: one less
+      # dependency to trust in a repo that's about locking things down.
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck
+          shellcheck --version
+
+      - name: Check syntax
+        run: |
+          for f in ./*.sh; do
+            echo "bash -n $f"
+            bash -n "$f"
+          done
+
+      # -S warning matches what's run locally. Style and info findings are
+      # allowed through; warnings and errors fail the build.
+      - name: Run shellcheck
+        run: shellcheck -S warning ./*.sh

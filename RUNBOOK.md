@@ -24,8 +24,22 @@ The parent keeps full access throughout: the parent account is in the `gatedapps
 - The laptop with Linux Mint (Cinnamon) installed, and the parent's admin account
 - `systemd-resolved` running on the laptop (see Step 0)
 - A free NextDNS account (nextdns.io) — the free tier is ample for one device
-- The kit: `RUNBOOK.md`, `kid-net-setup.sh`, `app-gate.sh`
-- About 45 minutes, most of it reviewing the app list
+- The kit: `RUNBOOK.md`, `bootstrap.sh`, `kid-net-setup.sh`, `app-gate.sh`
+- About 45 minutes by hand, most of it reviewing the app list — or about 10 plus the review via the fast path below
+
+---
+
+## The fast path
+
+On a clean install, `bootstrap.sh` runs steps 0 to 6 back to back and stops at the app review. Do Step 2 (the NextDNS profile) and Step 4 (getting the kit onto the laptop) first, then:
+
+```bash
+sudo ./bootstrap.sh --child CHILD --profile PROFILE_ID
+```
+
+You still do the review in Step 6 and the verification in Step 8 yourself. Add `--dry-run` to see what it would do without changing anything. Every phase is idempotent, so a failed run can be fixed and re-run.
+
+The rest of this document is the same ground done by hand — worth reading either way, since it explains what each piece is for and how to verify it.
 
 ---
 
@@ -71,7 +85,25 @@ The model here is "block known-bad categories, allow the rest", with per-site al
 
 ## Step 3 — Install the NextDNS CLI
 
-In a terminal on the laptop, as PARENT:
+Mint is Debian-based, so use NextDNS's apt repository. Upgrades then come through apt with everything else, and there's nothing interactive to answer. As PARENT:
+
+```bash
+sudo curl -fsSL https://repo.nextdns.io/nextdns.gpg -o /usr/share/keyrings/nextdns.gpg
+echo "deb [signed-by=/usr/share/keyrings/nextdns.gpg] https://repo.nextdns.io/deb stable main" | sudo tee /etc/apt/sources.list.d/nextdns.list
+sudo apt update
+sudo apt install nextdns
+```
+
+Then configure it, substituting the profile ID from Step 2:
+
+```bash
+sudo nextdns install -profile PROFILE_ID -report-client-info -auto-activate
+```
+
+If that reports an unknown flag, your build uses the newer name — swap `-profile` for `-config`. Getting this wrong is worth catching: the service will start either way, but DNS goes out unfiltered.
+
+<details>
+<summary>Alternative: the interactive installer</summary>
 
 ```bash
 sh -c "$(curl -sL https://nextdns.io/install)"
@@ -83,21 +115,36 @@ Choose **Install**. When prompted:
 - Answer yes to reporting device name/model
 - Answer yes to auto-activate / setting it as the system resolver
 
+Upgrades are then handled with `sudo nextdns upgrade` rather than apt. Pin a specific build with `NEXTDNS_VERSION=master/SNAPSHOT-0214daf` before the command. Add `DEBUG=1` if you need a transcript for NextDNS support.
+</details>
+
 Confirm the service is running and enabled:
 
 ```bash
 systemctl status nextdns
 ```
 
-## Step 4 — Copy the kit to the parent's account
+The CLI may warn that client discovery is disabled because it's listening on a loopback address only, so devices show up in the dashboard without names. That's expected here and doesn't affect filtering — this profile has one device on it, the laptop itself.
 
-Put the kit somewhere only PARENT can read, for example:
+
+## Step 4 — Get the kit onto the laptop
+
+As PARENT, clone it somewhere only they can read:
+
+```bash
+git clone https://github.com/lovespend/kids-laptop.git ~/kid-kit
+chmod 700 ~/kid-kit
+```
+
+Or, if the laptop has no git, copy the four files across by hand and make the scripts executable:
 
 ```bash
 mkdir -p ~/kid-kit && chmod 700 ~/kid-kit
-# copy the three files in, then:
+# copy RUNBOOK.md, bootstrap.sh, kid-net-setup.sh and app-gate.sh in, then:
 chmod +x ~/kid-kit/*.sh
 ```
+
+The scripts expect to sit next to each other — `bootstrap.sh` looks for the other two alongside itself.
 
 ## Step 5 — DNS hardening, lid behaviour, Firefox policy
 
@@ -190,7 +237,7 @@ sudo app-gate status       # Drift: 0
 
 | When | Do |
 |---|---|
-| After a large upgrade | Nothing needed; the apt hook re-applies the locks. `sudo app-gate status` confirms it. |
+| After a large upgrade | Nothing needed; the apt hook re-applies the locks, and the NextDNS CLI upgrades with everything else. `sudo app-gate status` confirms it. |
 | New apps installed | Run `sudo app-gate audit` (your existing choices are kept), review the **NEW** block, then `sudo app-gate apply` |
 | Unlock an app | Edit the list and change `LOCK` to `KEEP`, then `sudo app-gate apply` |
 | A site is wrongly blocked or allowed | Adjust the allow/deny lists in the NextDNS dashboard. No laptop changes needed. |
