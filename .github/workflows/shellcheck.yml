@@ -3,8 +3,11 @@ name: shellcheck
 # These scripts run as root on a laptop that isn't easy to un-break, so the
 # shell-level mistakes — a typo'd variable expanding to empty, an unquoted
 # path, a test that's always true — are worth catching before they get there.
+# Pushes to main, and every pull request. Limiting push to main stops a
+# branch with an open pull request running the whole thing twice per commit.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
