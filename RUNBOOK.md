@@ -107,17 +107,45 @@ Resist stacking three or four more blocklists on top. Each one adds breakage you
 
 ### Parental Control — the part that matters
 
-**Categories.** Block Porn, Gambling, Dating and Piracy. Think before blocking the two broad ones: *Social Networks* is a reasonable block at 11, and *Video Streaming* usually isn't — it catches YouTube and iPlayer and will make the laptop feel broken.
+**Categories.** Block Porn, Gambling, Dating, Piracy, Social Networks and Video Streaming.
 
-**Services.** These are per-app toggles and more precise than the categories. A sensible starting set to block: TikTok, Snapchat, Instagram, Twitch, Discord. Leave YouTube allowed but restricted (below), and leave Roblox or Minecraft alone if she plays them.
+Blocking Video Streaming wholesale is the stricter choice, and it means the services you *do* want have to be allowed back through by hand — see *Allowing a service through a category block* below. It's the right way round if the alternative leaves the long tail of random streaming sites open, but it is not a one-line job.
+
+**Services.** Per-app toggles, more precise than the categories. Block TikTok, Snapchat, Instagram, Twitch and Discord. Leave Roblox or Minecraft alone if she plays them.
+
+**YouTube.** Use the YouTube *service* toggle to block it, not a denylist entry. YouTube isn't one domain — it's `youtube.com`, `youtu.be`, `ytimg.com`, `googlevideo.com`, `youtubei.googleapis.com` and more, and the service toggle tracks all of them. A hand-written denylist entry will leave gaps.
+
+Know what this costs before you do it: embedded YouTube players break everywhere, including on sites you'd want to work — BBC Bitesize, school pages, help articles. That's not a bug in the setup, it's the actual consequence, and it's the most likely source of "this site is broken" complaints. Decide it deliberately rather than discovering it in homework week.
 
 **Block Bypass Methods.** Turn this on. It blocks VPN, proxy and Tor services at the DNS level, and it is the single highest-value toggle on the page — "how to get past wifi blocking" is the first thing anyone searches. It pairs directly with `app-gate` locking the VPN and browser binaries: one stops her installing a bypass tool, this stops the ones she can reach in a browser.
 
 **SafeSearch.** On. Forces the safe variants of Google, Bing and DuckDuckGo.
 
-**YouTube Restricted Mode.** On, with eyes open: it's YouTube's own filter and it is blunt. It removes a lot of genuinely harmless content along with the rest, and it's a common source of "this doesn't work" complaints. Worth it at 11, worth revisiting later.
+**YouTube Restricted Mode.** Irrelevant if you've blocked YouTube outright — it only filters a YouTube you can still reach. Leave it on anyway: it costs nothing and it's the safety net if the service toggle is ever turned off.
 
 **Recreation Time.** Optional. Lets you put games and social categories on a schedule — off during school hours, off after bedtime — rather than blocking them outright. Often a better answer than a flat block for something she'd otherwise resent.
+
+### Allowing a service through a category block
+
+With Video Streaming blocked, iPlayer and Disney+ need allowlist entries. Neither is a single domain, and guessing the list is how people end up abandoning this approach. Drive it from the logs instead:
+
+1. Turn **logs on** (see below) before you start.
+2. Block the category, then open the service on the child's laptop and try to play something.
+3. Watch the **Logs** tab in the dashboard. Blocked lookups appear as they happen.
+4. Add the blocked domains that clearly belong to that service to the **Allowlist**, and retry.
+
+Two or three rounds usually does it, and it's a one-off per service. Starting points:
+
+| Service | Start with |
+|---|---|
+| BBC iPlayer | `bbc.co.uk`, `bbci.co.uk`, `bbc.com` |
+| Disney+ | `disneyplus.com`, `disney-plus.net`, `disneystreaming.com`, `bamgrid.com`, `dssott.com` |
+
+Treat those as a first pass, not a complete list — both services shift CDN hosts over time, and the log is what tells you the truth on the day.
+
+**Keep allowlist entries narrow.** A NextDNS allowlist entry covers the domain and its subdomains, and takes precedence over blocking — including the Security tab. So allowing a shared-infrastructure domain because a video wouldn't play (`amazonaws.com`, `akamaized.net`, `cloudfront.net` and the like) punches a hole far wider than the service you were trying to fix, and it will be quietly carrying malware domains through months later. If a service only works when you allow shared infrastructure, stop and reconsider blocking the category rather than widening the hole.
+
+**If this gets tiresome,** the honest alternative is to leave Video Streaming unblocked and rely on the per-service toggles plus denylist entries for what you don't want. Weaker against sites nobody has heard of, but nothing legitimate breaks. Both are defensible; the runbook assumes your choice, not the other one.
 
 ### Settings — block page and logging
 
@@ -135,7 +163,7 @@ Whatever you decide, tell her the laptop is filtered and roughly how. Discoverin
 
 Expect to adjust in the first fortnight. Wrongly blocked sites are a dashboard change and nothing on the laptop — see *Maintenance*. If you find yourself making exceptions constantly for one category, unblock the category and use per-site denies instead.
 
-As she gets older the things to relax first are YouTube Restricted Mode and the Social Networks category. The two to keep longest are Block Bypass Methods and the Security tab.
+As she gets older the things to relax first are the YouTube block and the Social Networks category. The two to keep longest are Block Bypass Methods and the Security tab.
 
 ## Step 3 — Install the NextDNS CLI
 
@@ -273,6 +301,8 @@ Log in as CHILD and check each item:
 - [ ] `https://test.nextdns.io` in Firefox shows NextDNS **and the correct profile ID**
 - [ ] A site in a blocked category shows the NextDNS block page, not a certificate error
 - [ ] A VPN or proxy provider's site is blocked, confirming Block Bypass Methods is live
+- [ ] YouTube is blocked, including `youtu.be` and the mobile site
+- [ ] BBC iPlayer and Disney+ both actually play a video, not just load their front page
 - [ ] `about:policies` in Firefox lists `DNSOverHTTPS` and `Certificates` as active
 - [ ] Locked apps are missing from the menu
 - [ ] The terminal won't open for the child
@@ -296,6 +326,7 @@ sudo app-gate status       # Drift: 0
 | New apps installed | Run `sudo app-gate audit` (your existing choices are kept), review the **NEW** block, then `sudo app-gate apply` |
 | Unlock an app | Edit the list and change `LOCK` to `KEEP`, then `sudo app-gate apply` |
 | A site is wrongly blocked or allowed | Adjust the allow/deny lists in the NextDNS dashboard. No laptop changes needed. |
+| iPlayer or Disney+ stops playing | Their CDN hosts have moved. Check the Logs tab while reproducing it and add the new domains to the allowlist — keeping entries narrow, never shared CDN wildcards. |
 | Undo all app gating | `sudo app-gate revert` (keeps the list) or `sudo app-gate uninstall` (removes everything) |
 
 Each audit backs up the previous list to `/etc/app-gate/app-gate.list.bak.*`.
