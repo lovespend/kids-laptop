@@ -29,6 +29,19 @@ CHILD_HOME=$(getent passwd "$CHILD" | cut -d: -f6)
 
 echo "== Pre-flight"
 command -v nextdns >/dev/null || die "NextDNS CLI not found — do runbook step 3 first"
+
+# systemd-resolved is not optional here. We set NetworkManager dns=none (so NM
+# stops writing /etc/resolv.conf) and pin each link with resolvectl. Without
+# resolved, nothing writes resolv.conf at all and the laptop silently keeps
+# whatever DNS it last had — quite possibly the router's. Mint does not always
+# enable resolved by default, so check before we change anything.
+command -v resolvectl >/dev/null \
+  || die "resolvectl not found — this script needs systemd-resolved (install it, then: sudo systemctl enable --now systemd-resolved)"
+systemctl is-active --quiet systemd-resolved \
+  || die "systemd-resolved is not running. Enable it first:
+    sudo systemctl enable --now systemd-resolved
+  then re-run this script. Nothing has been changed."
+ok "systemd-resolved active"
 systemctl is-enabled --quiet nextdns 2>/dev/null && ok "nextdns service enabled" \
   || note "nextdns service not enabled — check: systemctl status nextdns"
 id -nG "$CHILD" | grep -qwE 'sudo|admin|wheel' \
@@ -48,12 +61,23 @@ cat > /etc/NetworkManager/dispatcher.d/99-force-nextdns <<'EOF'
 #!/bin/sh
 # Force every real link to resolve via the local NextDNS proxy, overriding
 # DNS servers handed out by DHCP or IPv6 router advertisements.
+#
+# NetworkManager discards dispatcher output, so anything worth knowing goes to
+# the journal instead:  journalctl -t force-nextdns
 IFACE="$1"; ACTION="$2"
 [ -n "$IFACE" ] && [ "$IFACE" != "none" ] && [ "$IFACE" != "lo" ] || exit 0
+
+pin() {
+  out=$("$@" 2>&1) && return 0
+  logger -t force-nextdns -p daemon.err "FAILED on $IFACE ($ACTION): $*${out:+ : $out}"
+  return 1
+}
+
 case "$ACTION" in
   up|dhcp4-change|dhcp6-change|connectivity-change|reapply)
-    resolvectl dns    "$IFACE" 127.0.0.1
-    resolvectl domain "$IFACE" '~.'
+    pin resolvectl dns    "$IFACE" 127.0.0.1 || exit 1
+    pin resolvectl domain "$IFACE" '~.'      || exit 1
+    logger -t force-nextdns -p daemon.info "$IFACE ($ACTION): DNS pinned to 127.0.0.1"
     ;;
 esac
 EOF

@@ -22,11 +22,28 @@ The parent keeps full access throughout: the parent account is in the `gatedapps
 ## What you need
 
 - The laptop with Linux Mint (Cinnamon) installed, and the parent's admin account
+- `systemd-resolved` running on the laptop (see Step 0)
 - A free NextDNS account (nextdns.io) — the free tier is ample for one device
 - The kit: `RUNBOOK.md`, `kid-net-setup.sh`, `app-gate.sh`
 - About 45 minutes, most of it reviewing the app list
 
 ---
+
+## Step 0 — Check systemd-resolved
+
+Everything in Step 5 depends on this, so check it before you start:
+
+```bash
+systemctl is-active systemd-resolved
+```
+
+If that prints `active`, move on. If not, enable it:
+
+```bash
+sudo systemctl enable --now systemd-resolved
+```
+
+Why it matters: Step 5 tells NetworkManager to stop managing DNS (`dns=none`) and pins each network link to the local NextDNS resolver using `resolvectl`, which is systemd-resolved's tool. Mint doesn't always have resolved enabled. Without it, NetworkManager stops writing `/etc/resolv.conf` and nothing replaces it, so the laptop quietly carries on using whatever DNS it last had — very likely the router's, with no filtering. `kid-net-setup.sh` refuses to run if resolved isn't active, so you can't get into that state by accident, but it's quicker to fix now.
 
 ## Step 1 — Accounts
 
@@ -185,7 +202,13 @@ Each audit backs up the previous list to `/etc/app-gate/app-gate.list.bak.*`.
 
 ## Troubleshooting
 
-**Filtering stops working after suspend or reconnecting.** Check `resolvectl status`. If the Wi-Fi link lists the router's IP or an IPv6 address, the DNS pin hook didn't run. Re-run `kid-net-setup.sh`. If the link shows 127.0.0.1 but lookups fail, run `sudo systemctl restart nextdns` and check `nextdns log`.
+**Filtering stops working after suspend or reconnecting.** Check `resolvectl status`. If the Wi-Fi link lists the router's IP or an IPv6 address, the DNS pin hook didn't run. See what it did with:
+
+```bash
+journalctl -t force-nextdns -n 30
+```
+
+Every run logs either the link it pinned or the command that failed. No entries at all means NetworkManager never called the hook — re-run `kid-net-setup.sh`. If the link shows 127.0.0.1 but lookups fail, run `sudo systemctl restart nextdns` and check `nextdns log`.
 
 **Filtering works for a while, then drifts back without a suspend.** IPv6 router advertisements may be refreshing DNS independently of NetworkManager's events. Add a systemd timer that re-runs the dispatcher hook every few minutes.
 
@@ -206,4 +229,5 @@ Each audit backs up the previous list to `/etc/app-gate/app-gate.list.bak.*`.
 - **Physical access.** Booting a live USB, or resetting a password from recovery mode. If that's a concern later, set a BIOS/UEFI password and disable USB boot.
 - **Other devices.** A phone, tablet or console on the same Wi-Fi. They need their own filtering, either NextDNS configured on the device or filtering at the router.
 - **Portable apps.** Anything downloaded into the child's home folder and run from there, such as an AppImage. `app-gate` only gates installed apps. Blocking execution in home directories is possible but a much bigger step.
+- **Scripting inside apps she keeps.** LibreOffice Basic (Tools → Macros) has a `Shell()` function, and GIMP has a Script-Fu console. Both can run arbitrary commands as her. The `app-gate` locks still apply — a command she launches this way is blocked the same as one launched from the menu — but it is a way to run anything *not* locked, including files she has downloaded into her home folder. Locking LibreOffice isn't the answer; this is simply another reason the setup isn't a security boundary.
 - **A determined teenager.** This setup raises the bar well above casual and accidental access. It isn't a security boundary against someone actively working to get around it. Revisit the setup as the child gets older; network-level enforcement on the router is the next step up.
